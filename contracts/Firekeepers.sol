@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.7;
 
-/// @notice Modern, minimalist, and gas efficient ERC-721 implementation.
-/// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC721.sol)
-abstract contract ERC721 {
+contract Firekeepers {
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -22,24 +21,37 @@ abstract contract ERC721 {
 
     string public symbol;
 
-    function tokenURI(uint256 id) public view virtual returns (string memory);
+    function tokenURI(uint256 id) public view virtual returns (string memory) {
+        // Todo - implement this
+    }
 
     /*//////////////////////////////////////////////////////////////
                       ERC721 BALANCE/OWNER STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    mapping(uint256 => address) internal _ownerOf;
+    mapping(uint256 => TokenData) internal tokens;
 
-    mapping(address => uint256) internal _balanceOf;
+    mapping(address => UserData)  internal users;
+
+    struct TokenData {
+        address owner;
+        uint48  mintingBlock;
+        uint48  index;
+    }
+
+    struct UserData {
+        uint128 balance;
+        uint128 minted;
+    }
 
     function ownerOf(uint256 id) public view virtual returns (address owner) {
-        require((owner = _ownerOf[id]) != address(0), "NOT_MINTED");
+        require((owner = tokens[id].owner) != address(0), "NOT_MINTED");
     }
 
     function balanceOf(address owner) public view virtual returns (uint256) {
         require(owner != address(0), "ZERO_ADDRESS");
 
-        return _balanceOf[owner];
+        return users[owner].balance;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -64,7 +76,7 @@ abstract contract ERC721 {
     //////////////////////////////////////////////////////////////*/
 
     function approve(address spender, uint256 id) public virtual {
-        address owner = _ownerOf[id];
+        address owner = tokens[id].owner;
 
         require(msg.sender == owner || isApprovedForAll[owner][msg.sender], "NOT_AUTHORIZED");
 
@@ -84,7 +96,7 @@ abstract contract ERC721 {
         address to,
         uint256 id
     ) public virtual {
-        require(from == _ownerOf[id], "WRONG_FROM");
+        require(from == tokens[id].owner, "WRONG_FROM");
 
         require(to != address(0), "INVALID_RECIPIENT");
 
@@ -96,12 +108,12 @@ abstract contract ERC721 {
         // Underflow of the sender's balance is impossible because we check for
         // ownership above and the recipient's balance can't realistically overflow.
         unchecked {
-            _balanceOf[from]--;
+            users[from].balance--;
 
-            _balanceOf[to]++;
+            users[to].balance++;
         }
 
-        _ownerOf[id] = to;
+        tokens[id].owner = to;
 
         delete getApproved[id];
 
@@ -157,29 +169,30 @@ abstract contract ERC721 {
     function _mint(address to, uint256 id) internal virtual {
         require(to != address(0), "INVALID_RECIPIENT");
 
-        require(_ownerOf[id] == address(0), "ALREADY_MINTED");
+        require(tokens[id].owner == address(0), "ALREADY_MINTED");
 
         // Counter overflow is incredibly unrealistic.
         unchecked {
-            _balanceOf[to]++;
+            users[to].minted++;
+            users[to].balance++;
         }
 
-        _ownerOf[id] = to;
+        tokens[id].owner = to;
 
         emit Transfer(address(0), to, id);
     }
 
     function _burn(uint256 id) internal virtual {
-        address owner = _ownerOf[id];
+        address owner = tokens[id].owner;
 
         require(owner != address(0), "NOT_MINTED");
 
         // Ownership check above ensures no underflow.
         unchecked {
-            _balanceOf[owner]--;
+            users[owner].balance--;
         }
 
-        delete _ownerOf[id];
+        tokens[id].owner = address(0);
 
         delete getApproved[id];
 
