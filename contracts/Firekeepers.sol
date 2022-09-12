@@ -3,6 +3,9 @@ pragma solidity 0.8.7;
 
 contract Firekeepers {
 
+    uint256 public immutable DURATION; // = 75;
+    uint256 public immutable MATURITY; // = 50400; // 7 days in block time (12 seconds)
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -13,25 +16,22 @@ contract Firekeepers {
 
     event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
 
-    /*//////////////////////////////////////////////////////////////
-                         METADATA STORAGE/LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    string public name;
-
-    string public symbol;
-
-    function tokenURI(uint256 id) public view virtual returns (string memory) {
-        // Todo - implement this
-    }
+    event Minted(address indexed owner, uint256 id, uint256 indexed blockNumber, uint256 index);
 
     /*//////////////////////////////////////////////////////////////
                       ERC721 BALANCE/OWNER STORAGE
     //////////////////////////////////////////////////////////////*/
+    
+    string public name;
+    string public symbol;
+    
+    uint256 public currentId;
 
     mapping(uint256 => TokenData) internal tokens;
-
     mapping(address => UserData)  internal users;
+
+    mapping(uint256 => address)                  public getApproved;
+    mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     struct TokenData {
         address owner;
@@ -44,7 +44,36 @@ contract Firekeepers {
         uint128 minted;
     }
 
-    function ownerOf(uint256 id) public view virtual returns (address owner) {
+    /*//////////////////////////////////////////////////////////////
+                    CONSTRUCTOR & MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(string memory _name, string memory _symbol, uint256 duration_, uint256 maturity_) {
+        name = _name;
+        symbol = _symbol;
+
+        DURATION = duration_;
+        MATURITY = maturity_;
+    }
+
+    modifier onlyMature(uint256 id) {
+        require(lastMinted() >= tokens[id].mintingBlock + MATURITY, "NOT MATURED");
+        _;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                         VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function lastMinted() public view returns (uint256 minted) {
+        return currentId == 0 ? block.number : tokens[currentId].mintingBlock;
+    }
+
+    function tokenURI(uint256 id) public view virtual returns (string memory) {
+        // Todo - implement this
+    }
+
+    function ownerOf(uint256 id) public view returns (address owner) {
         require((owner = tokens[id].owner) != address(0), "NOT_MINTED");
     }
 
@@ -54,21 +83,34 @@ contract Firekeepers {
         return users[owner].balance;
     }
 
+    function minted(address owner) public view returns (uint256) {
+        return users[owner].minted;
+    }
+    
+    function currentIndex() public view virtual returns (uint256) {
+        uint256 elapsed = block.number - lastMinted();
+
+        require(DURATION > elapsed, "GAME OVER");
+
+        return DURATION - elapsed;
+    }
+
+    function indexOf(uint256 id) public view returns (uint256) {
+        return tokens[id].index;
+    }
+
     /*//////////////////////////////////////////////////////////////
-                         ERC721 APPROVAL STORAGE
+                              MINTING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    mapping(uint256 => address) public getApproved;
+    function mint() external {
+        require(users[msg.sender].minted == 0,           "ALREADY MINTED");
+        require(block.number <= lastMinted() + DURATION, "GAME OVER");
 
-    mapping(address => mapping(address => bool)) public isApprovedForAll;
-
-    /*//////////////////////////////////////////////////////////////
-                               CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-
-    constructor(string memory _name, string memory _symbol) {
-        name = _name;
-        symbol = _symbol;
+        uint256 index = currentIndex();
+        
+        emit Minted(msg.sender, ++currentId, block.number, index);
+        _safeMint(msg.sender, currentId, index);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -95,7 +137,7 @@ contract Firekeepers {
         address from,
         address to,
         uint256 id
-    ) public virtual {
+    ) public virtual onlyMature(id) {
         require(from == tokens[id].owner, "WRONG_FROM");
 
         require(to != address(0), "INVALID_RECIPIENT");
@@ -124,7 +166,7 @@ contract Firekeepers {
         address from,
         address to,
         uint256 id
-    ) public virtual {
+    ) public virtual onlyMature(id) {
         transferFrom(from, to, id);
 
         require(
@@ -140,7 +182,7 @@ contract Firekeepers {
         address to,
         uint256 id,
         bytes calldata data
-    ) public virtual {
+    ) public virtual onlyMature(id) {
         transferFrom(from, to, id);
 
         require(
@@ -166,7 +208,7 @@ contract Firekeepers {
                         INTERNAL MINT/BURN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function _mint(address to, uint256 id) internal virtual {
+    function _mint(address to, uint256 id, uint256 index) internal virtual {
         require(to != address(0), "INVALID_RECIPIENT");
 
         require(tokens[id].owner == address(0), "ALREADY_MINTED");
@@ -178,6 +220,8 @@ contract Firekeepers {
         }
 
         tokens[id].owner = to;
+        tokens[id].mintingBlock = uint48(block.number);
+        tokens[id].index        = uint48(index);
 
         emit Transfer(address(0), to, id);
     }
@@ -203,8 +247,8 @@ contract Firekeepers {
                         INTERNAL SAFE MINT LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function _safeMint(address to, uint256 id) internal virtual {
-        _mint(to, id);
+    function _safeMint(address to, uint256 id, uint256 index) internal virtual {
+        _mint(to, id, index);
 
         require(
             to.code.length == 0 ||
@@ -217,9 +261,10 @@ contract Firekeepers {
     function _safeMint(
         address to,
         uint256 id,
+        uint256 index,
         bytes memory data
     ) internal virtual {
-        _mint(to, id);
+        _mint(to, id, index);
 
         require(
             to.code.length == 0 ||
