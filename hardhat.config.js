@@ -3,12 +3,12 @@ require("@nomiclabs/hardhat-etherscan");
 require("dotenv").config();
 
 // Keys
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const RINKEBY_KEY = process.env.RINKEBY_KEY;
+const PRIVATE_KEY = process.env.GOERLI_KEY;
+const GOERLI_KEY = process.env.GOERLI_KEY;
 
 // URLs
 const MAINNET_URL = process.env.MAINNET_URL || "";
-const RINKEBY_URL = process.env.RINKEBY_URL || "";
+const GOERLI_URL = process.env.GOERLI_URL || "";
 
 
 /**
@@ -29,12 +29,13 @@ module.exports = {
 			accounts: [
 				{
 					privateKey: PRIVATE_KEY,
+					balance: "1000000000000000000000"
 				},
 			],
 		},
-		rinkeby: {
-			url: `${RINKEBY_URL}`,
-			accounts: RINKEBY_KEY !== undefined ? [RINKEBY_KEY] : [],
+		goerli: {
+			url: `${GOERLI_URL}`,
+			accounts: GOERLI_KEY !== undefined ? [GOERLI_KEY] : [],
 		},
 		mainnet: {
 			url: MAINNET_URL,

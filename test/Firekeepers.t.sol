@@ -77,13 +77,5 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
         vm.expectRevert("GAME OVER");
         fire.mint();
     }
-
-    function test_mint_failDoubleMint() public {
-        // Mint first one
-        fire.mint();
-
-        vm.expectRevert("ALREADY MINTED");
-        fire.mint();
-    }
     
 }

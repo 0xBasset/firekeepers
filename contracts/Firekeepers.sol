@@ -4,7 +4,7 @@ pragma solidity 0.8.7;
 contract Firekeepers {
 
     uint256 public immutable DURATION; // = 75;
-    uint256 public immutable MATURITY; // = 50400; // 7 days in block time (12 seconds)
+    uint256 public immutable MATURITY; // = 21600; // 72 hours in block time (12 seconds)
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -25,7 +25,12 @@ contract Firekeepers {
     string public name;
     string public symbol;
     
+    address public admin;
+
     uint256 public currentId;
+    uint256 public lowestEmber;
+
+    uint256 public TEST_LASTMINTED;
 
     mapping(uint256 => TokenData) internal tokens;
     mapping(address => UserData)  internal users;
@@ -48,12 +53,19 @@ contract Firekeepers {
                     CONSTRUCTOR & MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
+    function TEST_RESTART() external {
+        TEST_LASTMINTED = block.number;
+    }
+
     constructor(string memory _name, string memory _symbol, uint256 duration_, uint256 maturity_) {
         name = _name;
         symbol = _symbol;
 
         DURATION = duration_;
         MATURITY = maturity_;
+
+        admin       = msg.sender;
+        lowestEmber = duration_;
     }
 
     modifier onlyMature(uint256 id) {
@@ -65,7 +77,12 @@ contract Firekeepers {
                          VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function lastMinted() public view returns (uint256 minted) {
+    function lastMinted() public view returns (uint256) {
+        // TODO remove - test override to allow better testing
+        if (currentId != 0 && TEST_LASTMINTED > tokens[currentId].mintingBlock) {
+            return TEST_LASTMINTED;
+        }
+
         return currentId == 0 ? block.number : tokens[currentId].mintingBlock;
     }
 
@@ -103,14 +120,26 @@ contract Firekeepers {
                               MINTING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function mint() external {
-        require(users[msg.sender].minted == 0,           "ALREADY MINTED");
+    function mint() external payable {
         require(block.number <= lastMinted() + DURATION, "GAME OVER");
 
-        uint256 index = currentIndex();
-        
+        uint256 index = currentIndex(); 
+
+        if (index < lowestEmber) lowestEmber = index;
+
         emit Minted(msg.sender, ++currentId, block.number, index);
         _safeMint(msg.sender, currentId, index);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                              ADMIN LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    function withdraw(address destination, uint256 amount) external {
+        require(msg.sender == admin, "NOT_ADMIN");
+
+        (bool success, ) = destination.call{value: amount}("");
+        require(success, "TRANSFER FAILED");
     }
 
     /*//////////////////////////////////////////////////////////////
