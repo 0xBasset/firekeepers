@@ -3,8 +3,10 @@ pragma solidity 0.8.7;
 
 contract Firekeepers {
 
-    uint256 public immutable DURATION; // = 75;
-    uint256 public immutable MATURITY; // = 21600; // 72 hours in block time (12 seconds)
+    bytes32 private constant ADMIN_SLOT = bytes32(0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103);
+
+    uint256 public DURATION; // = 75;
+    uint256 public MATURITY; // = 21600; // 72 hours in block time (12 seconds)
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -41,7 +43,7 @@ contract Firekeepers {
     struct TokenData {
         address owner;
         uint48  mintingBlock;
-        uint48  index;
+        uint48  ember;
     }
 
     struct UserData {
@@ -53,11 +55,9 @@ contract Firekeepers {
                     CONSTRUCTOR & MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
-    function TEST_RESTART() external {
-        TEST_LASTMINTED = block.number;
-    }
+    function initialize(string memory _name, string memory _symbol, uint256 duration_, uint256 maturity_) external {
+        require(msg.sender == owner(), "NOT AUTHORIZED");
 
-    constructor(string memory _name, string memory _symbol, uint256 duration_, uint256 maturity_) {
         name = _name;
         symbol = _symbol;
 
@@ -77,34 +77,13 @@ contract Firekeepers {
                          VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function lastMinted() public view returns (uint256) {
-        // TODO remove - test override to allow better testing
-        if (currentId != 0 && TEST_LASTMINTED > tokens[currentId].mintingBlock) {
-            return TEST_LASTMINTED;
-        }
+    function balanceOf(address owner_) public view virtual returns (uint256) {
+        require(owner_ != address(0), "ZERO_ADDRESS");
 
-        return currentId == 0 ? block.number : tokens[currentId].mintingBlock;
+        return users[owner_].balance;
     }
 
-    function tokenURI(uint256 id) public view virtual returns (string memory) {
-        // Todo - implement this
-    }
-
-    function ownerOf(uint256 id) public view returns (address owner) {
-        require((owner = tokens[id].owner) != address(0), "NOT_MINTED");
-    }
-
-    function balanceOf(address owner) public view virtual returns (uint256) {
-        require(owner != address(0), "ZERO_ADDRESS");
-
-        return users[owner].balance;
-    }
-
-    function minted(address owner) public view returns (uint256) {
-        return users[owner].minted;
-    }
-    
-    function currentIndex() public view virtual returns (uint256) {
+    function currentEmber() public view virtual returns (uint256) {
         uint256 elapsed = block.number - lastMinted();
 
         require(DURATION > elapsed, "GAME OVER");
@@ -112,8 +91,30 @@ contract Firekeepers {
         return DURATION - elapsed;
     }
 
-    function indexOf(uint256 id) public view returns (uint256) {
-        return tokens[id].index;
+    function emberOf(uint256 id) public view returns (uint256) {
+        return tokens[id].ember;
+    }
+
+    function lastMinted() public view returns (uint256) {
+        return currentId == 0 ? block.number : tokens[currentId].mintingBlock;
+    }
+
+    function minted(address owner_) public view returns (uint256) {
+        return users[owner_].minted;
+    }
+
+    function owner() public view returns (address owner_) {
+        return _getAddress(ADMIN_SLOT);
+    }
+
+    function ownerOf(uint256 id) public view returns (address owner_) {
+        require((owner_ = tokens[id].owner) != address(0), "NOT_MINTED");
+    }
+
+    function tokenURI(uint256 id) public view virtual returns (string memory) {
+        TokenData memory token = tokens[id];
+        // TODO adjust to production URI
+        return string(abi.encodePacked("https://qa-monks.prometheans.xyz/nft/", _toString(id), "/", _toString(token.ember), "/", _toString(token.mintingBlock + MATURITY)));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -123,12 +124,23 @@ contract Firekeepers {
     function mint() external payable {
         require(block.number <= lastMinted() + DURATION, "GAME OVER");
 
-        uint256 index = currentIndex(); 
+        uint256 index = currentEmber(); 
 
         if (index < lowestEmber) lowestEmber = index;
 
         emit Minted(msg.sender, ++currentId, block.number, index);
         _safeMint(msg.sender, currentId, index);
+    }
+
+    function mintTo(address destination_) external payable {
+        require(block.number <= lastMinted() + DURATION, "GAME OVER");
+
+        uint256 index = currentEmber(); 
+
+        if (index < lowestEmber) lowestEmber = index;
+
+        emit Minted(destination_, ++currentId, block.number, index);
+        _safeMint(destination_, currentId, index);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -147,13 +159,13 @@ contract Firekeepers {
     //////////////////////////////////////////////////////////////*/
 
     function approve(address spender, uint256 id) public virtual {
-        address owner = tokens[id].owner;
+        address owner_ = tokens[id].owner;
 
-        require(msg.sender == owner || isApprovedForAll[owner][msg.sender], "NOT_AUTHORIZED");
+        require(msg.sender == owner_ || isApprovedForAll[owner_][msg.sender], "NOT_AUTHORIZED");
 
         getApproved[id] = spender;
 
-        emit Approval(owner, spender, id);
+        emit Approval(owner_, spender, id);
     }
 
     function setApprovalForAll(address operator, bool approved) public virtual {
@@ -237,7 +249,7 @@ contract Firekeepers {
                         INTERNAL MINT/BURN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function _mint(address to, uint256 id, uint256 index) internal virtual {
+    function _mint(address to, uint256 id, uint256 ember) internal virtual {
         require(to != address(0), "INVALID_RECIPIENT");
 
         require(tokens[id].owner == address(0), "ALREADY_MINTED");
@@ -250,26 +262,26 @@ contract Firekeepers {
 
         tokens[id].owner = to;
         tokens[id].mintingBlock = uint48(block.number);
-        tokens[id].index        = uint48(index);
+        tokens[id].ember        = uint48(ember);
 
         emit Transfer(address(0), to, id);
     }
 
     function _burn(uint256 id) internal virtual {
-        address owner = tokens[id].owner;
+        address owner_ = tokens[id].owner;
 
-        require(owner != address(0), "NOT_MINTED");
+        require(owner_ != address(0), "NOT_MINTED");
 
         // Ownership check above ensures no underflow.
         unchecked {
-            users[owner].balance--;
+            users[owner_].balance--;
         }
 
         tokens[id].owner = address(0);
 
         delete getApproved[id];
 
-        emit Transfer(owner, address(0), id);
+        emit Transfer(owner_, address(0), id);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -301,6 +313,39 @@ contract Firekeepers {
                 ERC721TokenReceiver.onERC721Received.selector,
             "UNSAFE_RECIPIENT"
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        INTERNAL UTILITIES
+    //////////////////////////////////////////////////////////////*/
+
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
+
+    function _getAddress(bytes32 key) internal view returns (address add) {
+        add = address(uint160(uint256(_getSlotValue(key))));
+    }
+
+    function _getSlotValue(bytes32 slot_) internal view returns (bytes32 value_) {
+        assembly {
+            value_ := sload(slot_)
+        }
     }
 }
 

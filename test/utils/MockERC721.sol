@@ -4,7 +4,6 @@ pragma solidity >=0.8.0;
 import { Firekeepers as ERC721 } from "../../contracts/Firekeepers.sol";
 
 contract MockERC721 is ERC721 {
-    constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol, 100, 0) {}
 
     function tokenURI(uint256) public pure virtual override returns (string memory) {}
 

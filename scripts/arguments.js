@@ -1,1 +1,1 @@
-module.exports = ["Firekeepers", "FRKP", 75, 50400];
+module.exports = ["Firekeepers", "FRKP", 75, 750];

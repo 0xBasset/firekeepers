@@ -1,8 +1,15 @@
-[default]
+[profile.default]
 src = 'contracts'
 out = 'out'
 test = 'test'
+script = 'scripts'
 libs = ['modules']
 verbosity = 3
 
 # See more config options https://github.com/gakonst/foundry/tree/master/config
+
+[rpc_endpoints]
+goerli = "${GOERLI_RPC_URL}"
+
+[etherscan]
+goerli = { key = "${ETHERSCAN_API_KEY}" }

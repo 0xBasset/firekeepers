@@ -5,11 +5,13 @@ import {DSTestPlus} from "./utils/DSTestPlus.sol";
 import {DSInvariantTest} from "./utils/DSInvariantTest.sol";
 
 import {Firekeepers} from "../contracts/Firekeepers.sol";
+import {Proxy} from "../contracts/Proxy.sol";
 
 import {ERC721TokenReceiver} from "../contracts/Firekeepers.sol";
 
 
 import {Vm} from  "./utils/Interfaces.sol";
+
 contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
 
     Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
@@ -19,7 +21,8 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
     uint256 startingBlock = 10000;
 
     function setUp() public {
-        fire = new Firekeepers("Firekeepers", "FIREKEEPERS", 75, 50400);
+        fire = Firekeepers(address(new Proxy(address(new Firekeepers()))));
+        fire.initialize("Firekeepers", "FIREKEEPERS", 75, 21600);
 
         vm.roll(startingBlock);
     }
@@ -36,7 +39,7 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
         assertEq(fire.balanceOf(address(this)), 1);
         assertEq(fire.ownerOf(1), address(this));
         assertEq(fire.lastMinted(), startingBlock);
-        assertEq(fire.indexOf(1), 75);
+        assertEq(fire.emberOf(1), 75);
     }
 
     function test_mint_twoUsers_correctly() public {
@@ -51,7 +54,7 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
         assertEq(fire.balanceOf(address(this)), 1);
         assertEq(fire.ownerOf(1), address(this));
         assertEq(fire.lastMinted(), startingBlock);
-        assertEq(fire.indexOf(1), 75);
+        assertEq(fire.emberOf(1), 75);
 
         vm.roll(startingBlock + 10);
 
@@ -63,7 +66,7 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
         assertEq(fire.balanceOf(address(2)), 1);
         assertEq(fire.ownerOf(2), address(2));
         assertEq(fire.lastMinted(), startingBlock + 10);
-        assertEq(fire.indexOf(2), 65);
+        assertEq(fire.emberOf(2), 65);
     }
 
 
@@ -78,4 +81,23 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
         fire.mint();
     }
     
+    function test_transfer_afterMaturity() public {
+        // Mint first one
+        fire.mint();
+
+        vm.expectRevert("NOT MATURED");
+        fire.transferFrom(address(this), address(2), 1);
+
+        for (uint256 i = 0; i < 305; i++) {
+            vm.roll(block.number + 74);
+            fire.mint();
+        }
+
+        // first one should be matured
+        fire.transferFrom(address(this), address(2), 1);
+
+        // Last one still untransferable
+        vm.expectRevert("NOT MATURED");
+        fire.transferFrom(address(this), address(2), 300);
+    }
 }

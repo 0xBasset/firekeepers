@@ -57,12 +57,7 @@ contract ERC721Test is DSTestPlus {
     MockERC721 token;
 
     function setUp() public {
-        token = new MockERC721("Token", "TKN");
-    }
-
-    function invariantMetadata() public {
-        assertEq(token.name(), "Token");
-        assertEq(token.symbol(), "TKN");
+        token = new MockERC721();
     }
 
     function testMint() public {
@@ -366,13 +361,6 @@ contract ERC721Test is DSTestPlus {
 
     function testFailOwnerOfUnminted() public view {
         token.ownerOf(1337);
-    }
-
-    function testMetadata(string memory name, string memory symbol) public {
-        MockERC721 tkn = new MockERC721(name, symbol);
-
-        assertEq(tkn.name(), name);
-        assertEq(tkn.symbol(), symbol);
     }
 
     function testMint(address to, uint256 id) public {
