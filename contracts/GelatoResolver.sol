@@ -8,25 +8,15 @@ interface IPrometheansLike {
 }
 
 contract GelatoResolver {
-
-    IPrometheansLike public immutable prometheans;
-
-    address public deployer;
-
-    constructor(address _prom) {
-        prometheans =IPrometheansLike(_prom);
-        deployer = msg.sender;
-    }
-
-    function checker(uint256 ember_)
+    function checker(address prometheans, uint256 tokenReceiver, uint256 ember_)
         external
         view
         returns (bool canExec, bytes memory execPayload)
     {
-        uint256 currentEmber = prometheans.currentEmber();
+        uint256 currentEmber = IPrometheansLike(prometheans).currentEmber();
 
         canExec = currentEmber <= ember_;
 
-        execPayload = abi.encodeWithSelector(IPrometheansLike.mintTo.selector, deployer);
+        execPayload = abi.encodeWithSelector(IPrometheansLike.mintTo.selector, tokenReceiver);
     }
 }

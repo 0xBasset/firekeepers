@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.7;
 
-contract Firekeepers {
+contract Prometheans {
 
     bytes32 private constant ADMIN_SLOT = bytes32(0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103);
 
@@ -27,12 +27,10 @@ contract Firekeepers {
     string public name;
     string public symbol;
     
-    address public admin;
+    bool public open;
 
     uint256 public currentId;
     uint256 public lowestEmber;
-
-    uint256 public TEST_LASTMINTED;
 
     mapping(uint256 => TokenData) internal tokens;
     mapping(address => UserData)  internal users;
@@ -64,7 +62,6 @@ contract Firekeepers {
         DURATION = duration_;
         MATURITY = maturity_;
 
-        admin       = msg.sender;
         lowestEmber = duration_;
     }
 
@@ -113,15 +110,15 @@ contract Firekeepers {
 
     function tokenURI(uint256 id) public view virtual returns (string memory) {
         TokenData memory token = tokens[id];
-        // TODO adjust to production URI
-        return string(abi.encodePacked("https://qa-monks.prometheans.xyz/nft/", _toString(id), "/", _toString(token.ember), "/", _toString(token.mintingBlock + MATURITY)));
+        return string(abi.encodePacked("monks.prometheans.xyz/nft/", _toString(id), "/", _toString(token.ember), "/", _toString(token.mintingBlock + MATURITY)));
     }
 
     /*//////////////////////////////////////////////////////////////
                               MINTING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function mint() external payable {
+    function mint() external payable {  
+        require(open,                                    "NOT OPEN");
         require(block.number <= lastMinted() + DURATION, "GAME OVER");
 
         uint256 index = currentEmber(); 
@@ -132,7 +129,8 @@ contract Firekeepers {
         _safeMint(msg.sender, currentId, index);
     }
 
-    function mintTo(address destination_) external payable {
+    function mintTo(address destination_) external payable {    
+        require(open,                                    "NOT OPEN");
         require(block.number <= lastMinted() + DURATION, "GAME OVER");
 
         uint256 index = currentEmber(); 
@@ -148,10 +146,15 @@ contract Firekeepers {
     //////////////////////////////////////////////////////////////*/
 
     function withdraw(address destination, uint256 amount) external {
-        require(msg.sender == admin, "NOT_ADMIN");
+        require(msg.sender == owner(), "NOT_ADMIN");
 
         (bool success, ) = destination.call{value: amount}("");
         require(success, "TRANSFER FAILED");
+    }
+
+    function setOpen(bool open_) external {
+        require(msg.sender == owner(), "NOT_ADMIN");
+        open = open_;
     }
 
     /*//////////////////////////////////////////////////////////////

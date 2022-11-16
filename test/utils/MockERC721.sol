@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-import { Firekeepers as ERC721 } from "../../contracts/Firekeepers.sol";
+import { Prometheans as ERC721 } from "../../contracts/Prometheans.sol";
 
 contract MockERC721 is ERC721 {
 

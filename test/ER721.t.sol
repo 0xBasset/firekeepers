@@ -6,7 +6,7 @@ import {DSInvariantTest} from "./utils/DSInvariantTest.sol";
 
 import {MockERC721} from "./utils/MockERC721.sol";
 
-import {ERC721TokenReceiver} from "../contracts/Firekeepers.sol";
+import {ERC721TokenReceiver} from "../contracts/Prometheans.sol";
 
 contract ERC721Recipient is ERC721TokenReceiver {
     address public operator;

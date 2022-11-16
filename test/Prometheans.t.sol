@@ -4,10 +4,10 @@ pragma solidity 0.8.7;
 import {DSTestPlus} from "./utils/DSTestPlus.sol";
 import {DSInvariantTest} from "./utils/DSInvariantTest.sol";
 
-import {Firekeepers} from "../contracts/Firekeepers.sol";
+import {Prometheans} from "../contracts/Prometheans.sol";
 import {Proxy} from "../contracts/Proxy.sol";
 
-import {ERC721TokenReceiver} from "../contracts/Firekeepers.sol";
+import {ERC721TokenReceiver} from "../contracts/Prometheans.sol";
 
 
 import {Vm} from  "./utils/Interfaces.sol";
@@ -16,15 +16,17 @@ contract FirakeepersTest is DSTestPlus, ERC721TokenReceiver  {
 
     Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
-    Firekeepers fire;
+    Prometheans fire;
 
     uint256 startingBlock = 10000;
 
     function setUp() public {
-        fire = Firekeepers(address(new Proxy(address(new Firekeepers()))));
-        fire.initialize("Firekeepers", "FIREKEEPERS", 75, 21600);
+        fire = Prometheans(address(new Proxy(address(new Prometheans()))));
+        fire.initialize("Prometheans", "PROMETHEANS", 75, 21600);
 
         vm.roll(startingBlock);
+
+        fire.setOpen(true);
     }
 
     function test_mint_correctly() public {
