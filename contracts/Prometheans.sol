@@ -110,7 +110,7 @@ contract Prometheans {
 
     function tokenURI(uint256 id) public view virtual returns (string memory) {
         TokenData memory token = tokens[id];
-        return string(abi.encodePacked("monks.prometheans.xyz/nft/", _toString(id), "/", _toString(token.ember), "/", _toString(token.mintingBlock + MATURITY)));
+        return string(abi.encodePacked("https://monks.prometheans.xyz/nft/", _toString(id), "/", _toString(token.ember), "/", _toString(token.mintingBlock + MATURITY)));
     }
 
     /*//////////////////////////////////////////////////////////////
