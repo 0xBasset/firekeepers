@@ -8,6 +8,9 @@ import {MockERC721} from "./utils/MockERC721.sol";
 
 import {ERC721TokenReceiver} from "../contracts/Prometheans.sol";
 
+import { PrometheansThrophy as ERC721} from "../contracts/Throphy.sol";
+import { Proxy } from "../contracts/Proxy.sol";
+
 contract ERC721Recipient is ERC721TokenReceiver {
     address public operator;
     address public from;
@@ -56,7 +59,7 @@ contract NonERC721Recipient {}
 contract ERC721Test is DSTestPlus {
     MockERC721 token;
 
-    function setUp() public {
+    function setUp() public virtual {
         token = new MockERC721();
     }
 
